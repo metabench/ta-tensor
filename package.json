@@ -1,0 +1,17 @@
+{
+    "name": "ta-tensor",
+    "main": "ta-tensor.js",
+    "license": "MIT",
+    "dependencies": {
+    },
+    "engines": {
+        "node": ">=11.0.7"
+    },
+    "description": "Tensors using Typed Arrays.",
+    "author": "James Vickers <james@metabench.com>",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/metabench/ta-tensor.git"
+    },
+    "version": "0.0.1"
+}
