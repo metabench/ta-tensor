@@ -43,6 +43,20 @@
 
 // Tensor can't change shape
 
+const add = (ta1, ta2) => {
+    const l = Math.max(ta1.length, ta2.length);
+    const res = new ta1.constructor(l);
+    for (let c = 0; c < l; c++) {
+
+
+
+        res[c] = (ta1[c] || 0) + (ta2[c] || 0);
+    }
+    return res;
+}
+// copy a ta?
+//  could be faster than slice
+
 const read_only = (obj, prop_name, fn_get) => {
     Object.defineProperty(obj, prop_name, {
         get() {
@@ -118,10 +132,13 @@ class Tensor {
         //dimension_factors.reverse();
         dimension_factors = dimension_factors.slice(1);
 
-        console.log('dimension_factors', dimension_factors);
+        //console.log('dimension_factors', dimension_factors);
+
+        const r_dimension_factors = dimension_factors.slice().reverse();
+
         //throw 'stop';
 
-        
+
         if (!(shape instanceof Uint32Array)) {
             shape = new Uint32Array(shape);
         }
@@ -140,7 +157,7 @@ class Tensor {
         // In some cases it wouldn't be as secure. Can't rely on this data being either hidden or immutable.
         read_only(this, 'ta', () => ta);
 
-        ((rank, dimension_factors, size, shape) => {
+        (( rank, dimension_factors, r_dimension_factors, size, shape ) => {
 
             // Do more within the constructor optimization, using local variables rather than this?
             //console.log('TAConstructor.constructor ' + TAConstructor.constructor);
@@ -228,18 +245,40 @@ class Tensor {
                 // Or work up through the lower dimensions, 'accounting for' their components, and subtracting from the index.
 
                 let sum = i;
+                //console.log('');
+                //console.log('i', i);
 
+                //console.log('rank', rank);
                 const res = new Uint32Array(rank);
 
+                // need the dimension factors in the other dimension here.
+
+                //console.log('dimension_factors', dimension_factors);
+                //console.log('r_dimension_factors', r_dimension_factors);
+
+                //throw 'stop';
+
+                for (let c = 0 ; c < rank; c++) {
+                    let a = Math.floor(sum / dimension_factors[c]);
+                    sum -= a * dimension_factors[c];
+                    //console.log('a', a);
+                    res[c] = a;
+                }
+
+                /*
                 for (let c = rank - 1; c >= 0; c--) {
-                    //console.log('dimension_factors[c]', dimension_factors[c]);
-                    const a = Math.floor(sum / dimension_factors[c]);
+                    console.log('dimension_factors[c]', dimension_factors[c]);
+                    console.log('r_dimension_factors[c]', r_dimension_factors[c]);
+
+                    // r_dimension_factors
+                    const a = Math.floor(sum / r_dimension_factors[c]);
                     res[c] = a;
                     //let b = i % dimension_factors[c];
 
                     //console.log('1) a, b', [a, b]);
-                    sum -= a * dimension_factors[c];
+                    sum -= a * r_dimension_factors[c];
                 }
+                */
 
                 return res;
 
@@ -256,8 +295,6 @@ class Tensor {
                  */
 
                 /*
-
-
                 for (let c = 0; c < rank; c++) {
                     console.log('dimension_factors[c]', dimension_factors[c]);
                     if (c > 0) {
@@ -294,14 +331,14 @@ class Tensor {
 
                 let l = pos.length;
                 let rem = shape.slice(l);
-                console.log('pos l', l);
-                console.log('rem', rem);
+                //console.log('pos l', l);
+                //console.log('rem', rem);
 
                 //let res = new Tensor(rem);
                 //console.log('res', res);
 
                 let i_begin = pos_to_i(pos);
-                console.log('i_begin', i_begin);
+                //console.log('i_begin', i_begin);
 
                 //console.log('dimension_factors', dimension_factors);
                 let rank_size = 1;
@@ -309,13 +346,13 @@ class Tensor {
                     rank_size *= rem[c];
                 }
 
-                console.log('rank_size', rank_size);
+                //console.log('rank_size', rank_size);
                 let i_end = i_begin + rank_size;
-                console.log('i_end', i_end);
+                //console.log('i_end', i_end);
 
                 let ta_res = ta.slice(i_begin, i_end);
-                console.log('ta_res', ta_res);
-                console.log('ta_res.length', ta_res.length);
+                //console.log('ta_res', ta_res);
+                //console.log('ta_res.length', ta_res.length);
 
                 let res = new Tensor(rem, ta_res);
                 return res;
@@ -348,14 +385,143 @@ class Tensor {
             //  Or drawing a box within a single frame.
             //  That could be writing a 2d tensor.
 
-
             // set to lower rank looks a little more difficult.
             //  need to account for different shapes.
 
             //  I think we need to convert to and from coordinate systems.
 
+            const set = function (pos, value) {
+                const a = arguments,
+                    l = a.length;
+                if (l === 1) {
+                    value = a[0];
+                    pos = null;
+                    // or zeros throughout the whole thing.?
 
-            const set = (pos, value) => ta[pos_to_i(pos)] = value;
+                    // May need to look at the value.length
+
+                }
+
+                if (Array.isArray(pos)) {
+                    pos = new Uint32Array(pos);
+                }
+
+
+                // if the value is a number
+                //  need to have a position
+                if (typeof value === 'number') {
+
+                    // need to have a position.
+
+                    if (pos !== null) {
+                        ta[pos_to_i(pos)] = value;
+                    } else {
+                        throw 'NYI';
+                    }
+
+
+                } else {
+                    if (Array.isArray(value)) {
+                        console.log('arr value.length', value.length);
+                        if (pos === null) {
+                            if (value.length === ta.length) {
+                                const l = value.length;
+                                for (var c = 0; c < l; c++) {
+                                    ta[c] = value[c];
+                                }
+                            }
+                        }
+
+                    } else {
+                        if (m_ta_constructors.has(value.constructor)) {
+                            // typed array
+                            console.log('ta value.length', value.length);
+
+                            if (pos === null) {
+                                if (value.length === ta.length) {
+                                    const l = value.length;
+                                    for (var c = 0; c < l; c++) {
+                                        ta[c] = value[c];
+                                    }
+                                } else {
+                                    throw 'NYI';
+                                }
+                            }
+                        } else {
+                            // 
+
+                            if (value instanceof Tensor) {
+                                console.log('value', value);
+                                console.log('value.shape', value.shape);
+                                console.log('value.rank', value.rank);
+                                //throw 'stop';
+
+                                const vta = value.ta;
+                                // Can only do a direct copy where there is the right shape alignment.
+
+                                // More checks that it will fit within the boundary of this tensor?
+                                //  Automatically clip it is it won't be?
+
+
+
+                                // Better to iterate through all indexes of the value.
+                                //  Then get the coords from that value
+                                let iv = 0, lv = value.size;
+                                for (iv = 0; iv < lv; iv++) {
+                                    //console.log('iv', iv);
+
+                                    /*
+                                    
+                                    
+                                    let posv = value.i_to_pos(iv);
+                                    //console.log('posv', posv);
+                                    //console.log('pos', pos);
+
+                                    // then add together the tas
+                                    //console.log('pos', pos);
+
+                                    const mypos = add(pos, posv);
+                                    //console.log('mypos', mypos);
+
+                                    const imy = pos_to_i(mypos);
+                                    //console.log('imy', imy);
+
+                                    ta[imy] = vta[iv];
+                                    */
+                                    
+                                    // Or could use some kind of index offset list / tensor.
+                                    ta[pos_to_i(add(pos, value.i_to_pos(iv)))] = vta[iv];
+                                }
+                                
+
+                                // find the index of the pos
+                                //const i = pos_to_i(pos);
+
+                                // then need to iterate through that tensor's pos.
+
+
+
+
+                            } else {
+                                console.trace();
+
+                                throw 'Unsupported value type ' + value;
+                            }
+
+
+                        }
+                    }
+                }
+
+
+
+            }
+
+
+            //const set = (pos, value) => ta[pos_to_i(pos)] = value;
+
+
+
             const get = pos => pos.length === rank ? ta[pos_to_i(pos)] : get_from_lower_rank(pos);
 
             this.set = set;
@@ -367,11 +533,11 @@ class Tensor {
                 return this;
             }
             const fill_with_tensor = value_tensor => {
-                console.log('fill_with_tensor');
+                //console.log('fill_with_tensor');
                 let tr = value_tensor.rank;
-                console.log('tr', tr);
+                //console.log('tr', tr);
                 let ts = value_tensor.size;
-                console.log('ts', ts);
+                //console.log('ts', ts);
                 const tta = value_tensor.ta;
 
                 // Check to see if the dimension size matches?
@@ -386,8 +552,8 @@ class Tensor {
 
                 // find the rank where this gets added
 
-                let my_target_dimension = rank = tr;
-                console.log('my_target_dimension', my_target_dimension);
+                let my_target_dimension = rank - tr;
+                //console.log('my_target_dimension', my_target_dimension);
 
                 const l = ta.length;
 
@@ -400,7 +566,7 @@ class Tensor {
                 return this;
 
                 // then go through every dimension up to the target dimension
-                
+
                 // need to be able to write the tensor in every value within the right dimension
 
                 // ideally want to look through the index, doing an addition.
@@ -414,10 +580,7 @@ class Tensor {
             const fill = (value) => value instanceof Tensor ? fill_with_tensor(value) : fill_with_value(value);
             this.fill = fill;
 
-        })(rank, dimension_factors, size, shape);
-
-
-
+        })(rank, dimension_factors, r_dimension_factors, size, shape);
 
 
         /*
@@ -433,8 +596,6 @@ class Tensor {
         // y * w + x formula extension.
 
         // p2 * d1 + p1;
-
-
 
         // 3d x, y, z:
 
@@ -500,21 +661,60 @@ if (require.main === module) {
     // so set a tensor at a variety of pixels
 
     let t_col = new Tensor([3]);
-    t_col.set([0], 20);
-    t_col.set([1], 25);
-    t_col.set([2], 30);
+
+    // how to use its values as a scalar in the constructor? Not for the moment.
+    t_col.set([20, 25, 30]); // Seems like good syntax.
+    // Set with array.
+    // Not give any position. It sets the whole ta.
+
+    // should it immedaietely convert that array to a ta?
+    //  or create a new tensor for them?
+
+    //t_col.set([0], 20);
+    //t_col.set([1], 25);
+    //t_col.set([2], 30);
 
     t10x10.fill(t_col);
 
-    console.log('t10x10.ta', t10x10.ta);
+    
+    console.log('t10x10.rank', t10x10.rank);
+    //throw 'stop';
+
+    // need to be able to set with a tensor.
+    t.set([0, 1], t10x10);
+    console.log('t.ta', t.ta);
+    console.log('t.shape', t.shape);
+
+    // to_png(tensor(x, y, bytes_per_pixel))
+
+
+    // then want to save some of it, could export as pixel buffer
+    //  tensor_to_pixel_buffer
+    //   but only a specific tensor shape.
+
+
+    // Should be similar to bitblit
+
 
     //t10x10.fill()
 
     // then want to set that t10x10 within the larger tensor in a few places.
 
+    // Need fast ways of accessing a particular set of coordinates on a 2d plane.
+    //  Tensors holding position offsets could be of use
+    //  Or tensor shapes representing position offsets
 
+    // Be familiar with adding a certain amount to an index to move the position.
 
+    // Rank index offset vectors.
 
+    // As well as the right loops and conversion functions, also want the patterns for moving through two tensors at once.
+    //  Position offset vectors
+    //  Calculated position offsets
+
+    // Want to try iterating through 10x10 index.
+    //  View internel tensor
+    //  Don't need to get an internal ten
 
 
 } else {
