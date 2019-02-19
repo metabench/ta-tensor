@@ -53,9 +53,15 @@ const read_only = (obj, prop_name, fn_get) => {
 
 // Use the regular Map constructor to transform a 2D key-value Array into a map
 var m_ta_constructors = new Map([
-    [Uint8ClampedArray, true], [Uint8Array, true], [Uint16Array, true], [Uint32Array, true],
-    [Int8Array, true], [Int16Array, true], [Int32Array, true],
-    [Float32Array, true], [Float64Array, true]
+    [Uint8ClampedArray, true],
+    [Uint8Array, true],
+    [Uint16Array, true],
+    [Uint32Array, true],
+    [Int8Array, true],
+    [Int16Array, true],
+    [Int32Array, true],
+    [Float32Array, true],
+    [Float64Array, true]
 ]);
 
 
@@ -115,9 +121,7 @@ class Tensor {
         console.log('dimension_factors', dimension_factors);
         //throw 'stop';
 
-        read_only(this, 'rank', () => rank);
-        read_only(this, 'size', () => size);
-        read_only(this, 'shape', () => shape.slice());
+        
         if (!(shape instanceof Uint32Array)) {
             shape = new Uint32Array(shape);
         }
@@ -126,235 +130,296 @@ class Tensor {
             throw 'Typed Array Size Mismatch';
         }
 
+        read_only(this, 'rank', () => rank);
+        read_only(this, 'size', () => size);
+        read_only(this, 'shape', () => shape.slice());
+
+        // Why enable access to the underlying ta? is that less secure?
+        // To enable faster operations with direct access, that don't require function calls.
+        //  Want other objects, including other tensors, to be able to read the ta.
+        // In some cases it wouldn't be as secure. Can't rely on this data being either hidden or immutable.
+        read_only(this, 'ta', () => ta);
+
+        ((rank, dimension_factors, size, shape) => {
+
+            // Do more within the constructor optimization, using local variables rather than this?
+            //console.log('TAConstructor.constructor ' + TAConstructor.constructor);
+
+            // Can check the contructor against all the known ta constructors,
+            //  or have a js map object of the constructors.
+            //  that could be fastest and idiomatic...?
+
+            // For some optimized usages, we want to construct a tensor using a typed array already given
+            //  check it's the right size too.
+
+
+            //console.log('TAConstructor.prototype ' + TAConstructor.prototype);
+            // number of dimensions?
+            //  "order", "degree", or "ndims." - TensorFlow
+            // scale? The components of a tensor with respect to a basis is an indexed array. The order of a tensor is the number of indices needed. Some texts may refer to the tensor order using the term degree or rank.
+            //  order, degree, rank
+            // tf.rank
+            //  Returns a 0-D int32 Tensor representing the rank of input
+            // tf.size
+            //  Returns a 0-D Tensor representing the number of elements in input of type out_type. Defaults to tf.int32.
+
+            // Our rank function will return a number
+
+
+            // go with rank
+            //  like TensorFlow
+
+            //uint MaxValue = 4294967295;
+            // uint MaxValue = 4,294,967,295; 4GB
+            // For the moment, size is limited to 4GB.
+            // size
 
 
 
-        // Do more within the constructor optimization, using local variables rather than this?
-        //console.log('TAConstructor.constructor ' + TAConstructor.constructor);
+            // It's the smaller part on the right.
+            //  So the dimension factors should be created in the opposite direction.
 
-        // Can check the contructor against all the known ta constructors,
-        //  or have a js map object of the constructors.
-        //  that could be fastest and idiomatic...?
+            const pos_to_i = pos => {
+                // pos should have all dimensions?
+                //
 
-        // For some optimized usages, we want to construct a tensor using a typed array already given
-        //  check it's the right size too.
+                // But for lower order pos?
 
+                let sum = 0;
+                const l = pos.length;
 
-        //console.log('TAConstructor.prototype ' + TAConstructor.prototype);
-        // number of dimensions?
-        //  "order", "degree", or "ndims." - TensorFlow
-        // scale? The components of a tensor with respect to a basis is an indexed array. The order of a tensor is the number of indices needed. Some texts may refer to the tensor order using the term degree or rank.
-        //  order, degree, rank
-        // tf.rank
-        //  Returns a 0-D int32 Tensor representing the rank of input
-        // tf.size
-        //  Returns a 0-D Tensor representing the number of elements in input of type out_type. Defaults to tf.int32.
+                // Largest dimension factors should be on the left
 
-        // Our rank function will return a number
-
-
-        // go with rank
-        //  like TensorFlow
-
-        //uint MaxValue = 4294967295;
-        // uint MaxValue = 4,294,967,295; 4GB
-        // For the moment, size is limited to 4GB.
-        // size
-        
-
-
-        // It's the smaller part on the right.
-        //  So the dimension factors should be created in the opposite direction.
-
-        const pos_to_i = pos => {
-            // pos should have all dimensions?
-            //
-
-            // But for lower order pos?
-
-            let sum = 0;
-            const l = pos.length;
-
-            // Largest dimension factors should be on the left
-
-            for (let c = 0; c < l; c++) {
-                sum = sum + dimension_factors[c] * pos[c];
-            }
-            return sum;
-
-            // need to use dimension factors in calculations.
-
-            // consult dimension_factors.
-
-
-
-            /*
-            for (let d = rank - 1; d > 0; d--) {
-                // all the lower rank shape (dimension) sizes multiplied together.
-
-            }
-            */
-
-        }
-
-        this.pos_to_i = pos_to_i;
-
-        // then i to pos
-        //  a bit harder to calculate
-        //  may work with remainders.
-        //  subtraction of dimension_factors, looking at what is left over
-
-        const i_to_pos = i => {
-            // work backwards.
-
-            // work back through the dimension factors.
-
-            // from the second last one.
-            //  work backwards, using math floor divided part, and remainders once divided by that.
-
-            // Or work up through the lower dimensions, 'accounting for' their components, and subtracting from the index.
-
-            let sum = i;
-
-            const res = new Uint32Array(rank);
-
-            for (let c = rank - 1; c >= 0; c--) {
-                //console.log('dimension_factors[c]', dimension_factors[c]);
-                const a = Math.floor(sum / dimension_factors[c]);
-                res[c] = a;
-                //let b = i % dimension_factors[c];
-
-                //console.log('1) a, b', [a, b]);
-                sum -= a * dimension_factors[c];
-            }
-
-            return res;
-
-            /*
-            for (let c = 0; c < rank; c++) {
-                console.log('dimension_factors[c]', dimension_factors[c]);
-                let a = i / dimension_factors[c];
-                let b = i % dimension_factors[c];
-                console.log('2) a, b', [a, b]);
-            }
-            */
-
-            /*
-            */
-
-            /*
-
-
-            for (let c = 0; c < rank; c++) {
-                console.log('dimension_factors[c]', dimension_factors[c]);
-                if (c > 0) {
-                    console.log('c', c);
-                    console.log('2) dimension_factors[c]', dimension_factors[c]);
-                    console.log('i % dimension_factors[c]', i % dimension_factors[c]);
+                for (let c = 0; c < l; c++) {
+                    sum = sum + dimension_factors[c] * pos[c];
                 }
+                return sum;
+
+                // need to use dimension factors in calculations.
+
+                // consult dimension_factors.
+
+
+
+                /*
+                for (let d = rank - 1; d > 0; d--) {
+                    // all the lower rank shape (dimension) sizes multiplied together.
+
+                }
+                */
+
+            }
+
+            this.pos_to_i = pos_to_i;
+
+            // then i to pos
+            //  a bit harder to calculate
+            //  may work with remainders.
+            //  subtraction of dimension_factors, looking at what is left over
+
+            const i_to_pos = i => {
+                // work backwards.
+
+                // work back through the dimension factors.
+
+                // from the second last one.
+                //  work backwards, using math floor divided part, and remainders once divided by that.
+
+                // Or work up through the lower dimensions, 'accounting for' their components, and subtracting from the index.
+
+                let sum = i;
+
+                const res = new Uint32Array(rank);
+
+                for (let c = rank - 1; c >= 0; c--) {
+                    //console.log('dimension_factors[c]', dimension_factors[c]);
+                    const a = Math.floor(sum / dimension_factors[c]);
+                    res[c] = a;
+                    //let b = i % dimension_factors[c];
+
+                    //console.log('1) a, b', [a, b]);
+                    sum -= a * dimension_factors[c];
+                }
+
+                return res;
+
+                /*
+                for (let c = 0; c < rank; c++) {
+                    console.log('dimension_factors[c]', dimension_factors[c]);
+                    let a = i / dimension_factors[c];
+                    let b = i % dimension_factors[c];
+                    console.log('2) a, b', [a, b]);
+                }
+                */
+
+                /*
+                 */
+
+                /*
+
+
+                for (let c = 0; c < rank; c++) {
+                    console.log('dimension_factors[c]', dimension_factors[c]);
+                    if (c > 0) {
+                        console.log('c', c);
+                        console.log('2) dimension_factors[c]', dimension_factors[c]);
+                        console.log('i % dimension_factors[c]', i % dimension_factors[c]);
+                    }
+                }
+                */
+            }
+
+            this.i_to_pos = i_to_pos;
+
+
+            // Also various position iteration functions.
+            //  Be able to get slices as Tensor objects.
+
+
+            /*
+            const set = (pos, value) => {
+                const i = pos_to_i(pos);
+                ta[i] = value;
+                return this;
             }
             */
-        }
 
-        this.i_to_pos = i_to_pos;
+            const get_from_lower_rank = pos => {
+                console.log('get_from_lower_rank', pos);
+
+                // Should contain a tensor that contains the inner data.
+                //  Maybe it gets a bit complex here
+
+                // Tensor gets the dimensions of the remaining ranks.
+
+                let l = pos.length;
+                let rem = shape.slice(l);
+                console.log('pos l', l);
+                console.log('rem', rem);
+
+                //let res = new Tensor(rem);
+                //console.log('res', res);
+
+                let i_begin = pos_to_i(pos);
+                console.log('i_begin', i_begin);
+
+                //console.log('dimension_factors', dimension_factors);
+                let rank_size = 1;
+                for (let c = 0, l = rem.length; c < l; c++) {
+                    rank_size *= rem[c];
+                }
+
+                console.log('rank_size', rank_size);
+                let i_end = i_begin + rank_size;
+                console.log('i_end', i_end);
+
+                let ta_res = ta.slice(i_begin, i_end);
+                console.log('ta_res', ta_res);
+                console.log('ta_res.length', ta_res.length);
+
+                let res = new Tensor(rem, ta_res);
+                return res;
+
+                // then we create a new Tensor with the remaining shape and data.
+
+                // then need to iterate through the positions / indexes
+                //  May be able to quickly copy from the ta if we know the right indexes.
+                //  It should be a solid chunk of them.
+
+                // Could work out the positions in the ta
+                //  Then doing a copy seems like the most efficient.
+                //  Could even first copy / slice the ta, and use Tensor.from or a constructor type that allows the ta to be specified
 
 
-        // Also various position iteration functions.
-        //  Be able to get slices as Tensor objects.
-
-
-        /*
-        const set = (pos, value) => {
-            const i = pos_to_i(pos);
-            ta[i] = value;
-            return this;
-        }
-        */
-
-        const get_from_lower_rank = pos => {
-            console.log('get_from_lower_rank', pos);
-
-            // Should contain a tensor that contains the inner data.
-            //  Maybe it gets a bit complex here
-
-            // Tensor gets the dimensions of the remaining ranks.
-
-            let l = pos.length;
-            let rem = shape.slice(l);
-            console.log('pos l', l);
-            console.log('rem', rem);
-
-            //let res = new Tensor(rem);
-            //console.log('res', res);
-
-            let i_begin = pos_to_i(pos);
-            console.log('i_begin', i_begin);
-
-            //console.log('dimension_factors', dimension_factors);
-            let rank_size = 1;
-            for (let c = 0, l = rem.length; c < l; c++) {
-                rank_size *= rem[c];
             }
 
-            console.log('rank_size', rank_size);
-            let i_end = i_begin + rank_size;
-            console.log('i_end', i_end);
+            // Need to be able to write sub-tensors in place.
 
-            let ta_res = ta.slice(i_begin, i_end);
-            console.log('ta_res', ta_res);
-            console.log('ta_res.length', ta_res.length);
-
-            let res = new Tensor(rem, ta_res);
-            return res;
-
-            // then we create a new Tensor with the remaining shape and data.
-
-            // then need to iterate through the positions / indexes
-            //  May be able to quickly copy from the ta if we know the right indexes.
-            //  It should be a solid chunk of them.
-
-            // Could work out the positions in the ta
-            //  Then doing a copy seems like the most efficient.
-            //  Could even first copy / slice the ta, and use Tensor.from or a constructor type that allows the ta to be specified
+            // The trick will be to write smaller tensors.
+            //  Need to extend functions from writing a 5x5 box into a 100x100 picture.
+            //   Can't direct copy, could direct copy rows.
+            //   Really need to work ut the corresponding index of each pixel/cell in each, and copy them accross.
+            //   Can have fast index finding, and fast copying of data.
+            //    So presumably this tensor maths system will be relatively fast.
+            //    But would be considerably faster in a compiled language.
 
 
-        }
-
-        // Need to be able to write sub-tensors in place.
-
-        // The trick will be to write smaller tensors.
-        //  Need to extend functions from writing a 5x5 box into a 100x100 picture.
-        //   Can't direct copy, could direct copy rows.
-        //   Really need to work ut the corresponding index of each pixel/cell in each, and copy them accross.
-        //   Can have fast index finding, and fast copying of data.
-        //    So presumably this tensor maths system will be relatively fast.
-        //    But would be considerably faster in a compiled language.
+            // Say we have multiple frames, and we want to set individual frames.
+            //  Or drawing a box within a single frame.
+            //  That could be writing a 2d tensor.
 
 
-        // Say we have multiple frames, and we want to set individual frames.
-        //  Or drawing a box within a single frame.
-        //  That could be writing a 2d tensor.
+            // set to lower rank looks a little more difficult.
+            //  need to account for different shapes.
+
+            //  I think we need to convert to and from coordinate systems.
 
 
-        // set to lower rank looks a little more difficult.
-        //  need to account for different shapes.
+            const set = (pos, value) => ta[pos_to_i(pos)] = value;
+            const get = pos => pos.length === rank ? ta[pos_to_i(pos)] : get_from_lower_rank(pos);
 
-        //  I think we need to convert to and from coordinate systems.
+            this.set = set;
+            this.get = get;
+
+            const fill_with_value = value => {
+                const l = ta.length;
+                for (var c = 0; c < l; c++) ta[c] = value;
+                return this;
+            }
+            const fill_with_tensor = value_tensor => {
+                console.log('fill_with_tensor');
+                let tr = value_tensor.rank;
+                console.log('tr', tr);
+                let ts = value_tensor.size;
+                console.log('ts', ts);
+                const tta = value_tensor.ta;
+
+                // Check to see if the dimension size matches?
+                //  Needs more work for other cases.
 
 
-        const set = (pos, value) => ta[pos_to_i(pos)] = value;
-        const get = pos => pos.length === rank ? ta[pos_to_i(pos)] : get_from_lower_rank(pos);
+                // Only a tensor of rank 1, we could copy it directly.
 
-        this.set = set;
-        this.get = get;
+                // But lets loop through all of that tensor's coordinates and values.
+                //  Better to directly access the other tensor's ta?
+                //  would make sense, so that we get fastest access without having to use a callback function system.
+
+                // find the rank where this gets added
+
+                let my_target_dimension = rank = tr;
+                console.log('my_target_dimension', my_target_dimension);
+
+                const l = ta.length;
+
+                let d;
+                for (let c = 0; c < l; c += ts) {
+                    for (d = 0; d < ts; d++) {
+                        ta[c + d] = tta[d];
+                    }
+                }
+                return this;
+
+                // then go through every dimension up to the target dimension
+                
+                // need to be able to write the tensor in every value within the right dimension
+
+                // ideally want to look through the index, doing an addition.
 
 
-        const fill = (value) => {
-            const l = ta.length;
-            for (var c = 0; c < l; c++) ta[c] = value;
-            return this;
-        }
-        this.fill = fill;
+                //const l = ta.length;
+                //for (var c = 0; c < l; c++) ta[c] = value;
+                //return this;
+            }
+
+            const fill = (value) => value instanceof Tensor ? fill_with_tensor(value) : fill_with_value(value);
+            this.fill = fill;
+
+        })(rank, dimension_factors, size, shape);
+
+
+
+
+
         /*
         const get = (pos) => {
             const i = pos_to_i
@@ -398,9 +463,9 @@ class Tensor {
 
 
 if (require.main === module) {
-	//var number = 252;
-	//var key1 = new XAS2(number);
-	//var key2 = xas2(key1.hex);
+    //var number = 252;
+    //var key1 = new XAS2(number);
+    //var key2 = xas2(key1.hex);
 
     const t = new Tensor(new Uint32Array([100, 100, 3]));
     console.log('t', t);
@@ -427,8 +492,33 @@ if (require.main === module) {
     console.log('px', px);
     console.log('px.shape', px.shape);
 
+    // want to create a 10x10 block
+
+    const t10x10 = new Tensor([10, 10, 3]);
+
+    // want to put in place a [20, 25, 30] color in all pixels.
+    // so set a tensor at a variety of pixels
+
+    let t_col = new Tensor([3]);
+    t_col.set([0], 20);
+    t_col.set([1], 25);
+    t_col.set([2], 30);
+
+    t10x10.fill(t_col);
+
+    console.log('t10x10.ta', t10x10.ta);
+
+    //t10x10.fill()
+
+    // then want to set that t10x10 within the larger tensor in a few places.
+
+
+
+
+
+
 } else {
-	//console.log('required as a module');
+    //console.log('required as a module');
 }
 
 module.exports = Tensor;
