@@ -1,9 +1,8 @@
 {
     "name": "ta-tensor",
-    "main": "ta-tensor.js",
+    "main": "tensor.js",
     "license": "MIT",
-    "dependencies": {
-    },
+    "dependencies": {},
     "engines": {
         "node": ">=11.0.7"
     },
@@ -13,5 +12,5 @@
         "type": "git",
         "url": "https://github.com/metabench/ta-tensor.git"
     },
-    "version": "0.0.2"
+    "version": "0.0.3"
 }

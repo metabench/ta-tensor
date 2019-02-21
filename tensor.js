@@ -43,13 +43,25 @@
 
 // Tensor can't change shape
 
-const add = (ta1, ta2) => {
+/* Possible much faster loop-action method
+
+loop dimension 1
+ loop dimension 2
+  loop dimension 3
+   write them all, updating the offsets
+   
+Could be a lot faster if it means avoiding having to (re)calculate indexes.
+However, calculating indexes could likely be done quickly, and its a reliable method.
+
+
+
+*/
+
+// Adds the two, new result. Do we want that?
+const add_ta = (ta1, ta2) => {
     const l = Math.max(ta1.length, ta2.length);
     const res = new ta1.constructor(l);
     for (let c = 0; c < l; c++) {
-
-
-
         res[c] = (ta1[c] || 0) + (ta2[c] || 0);
     }
     return res;
@@ -77,6 +89,34 @@ var m_ta_constructors = new Map([
     [Float32Array, true],
     [Float64Array, true]
 ]);
+
+
+/*
+    Position Deltas
+    ---------------
+
+    Need to be able to use tensors to represent differences in index values, as well as differences in positions.
+    Index value diffs can be stored in a list, while position differences are in a matrix
+    Or position differences can be expressed as a shape, where the central pixel / position is right in the middle.
+
+    Then convert a position difference shape to the position deltas list
+    // And can / should use / support tensors for both.
+    Scalar tensors could even be useful in ensuring the types of numbers.
+
+
+    // tensor.shape_to_position_deltas
+    //  only think we really need the TypedArray here
+
+*/
+
+
+// Could possibly have a Shape or Tensor_Shape class
+//  It would be useful in that it can be combines with another tensor's shape to work out the position offsets as one shape gets used as offsets while moving through that
+//  tensor.
+
+// Tensor_Shape does seem like it would be useful.
+//  Can use that rather than full tensors for working out the shape.
+//  Possibly Tensor itself can hold Tensor_Shape which can do a few more calculations.
 
 
 class Tensor {
@@ -118,7 +158,7 @@ class Tensor {
         const rshape = shape.slice().reverse();
 
         for (let c = 0; c < rank; c++) {
-            console.log('rshape[c]', rshape[c]);
+            //console.log('rshape[c]', rshape[c]);
 
             tsize = tsize * rshape[c];
             dimension_factors[c + 1] = tsize;
@@ -150,6 +190,48 @@ class Tensor {
         read_only(this, 'rank', () => rank);
         read_only(this, 'size', () => size);
         read_only(this, 'shape', () => shape.slice());
+        read_only(this, 'dimension_factors', () => dimension_factors.slice());
+
+
+        // index offsets.
+
+
+        const shape_to_index_offsets = shape => {
+            // depends on own dimension factors
+
+            console.log('shape', shape);
+            console.log('shape.length', shape.length);
+
+            // Possibly return its own tensor.
+            // Maybe we don't need to return a tensor with its own shape.
+
+            // Then can use the index offsets for a floating window.
+            //  Use another for loop, and read values, rather than have to assemble a new object.
+
+            
+
+            // will need to go through all positions within the shape.
+            //  or the expansion of the shape really.
+
+            // Will use this to make the index position deltas from a shape
+            // Will need to find the centre position within each dimension.
+
+            // Make a tensor with that shape?
+            //  Then go through its positions
+            //  Making a list of the deltas with reference to this / assigning that value to the tensor.
+
+            // Maybe we could have a Shape class?
+            //  Not sure.
+
+            // iterate shape?
+            //  get_shape_positions?
+            //   then we can find the centre of all of them?
+            //    then recentre the shape positions.
+
+        }
+
+
+        // dimension_factors
 
         // Why enable access to the underlying ta? is that less secure?
         // To enable faster operations with direct access, that don't require function calls.
@@ -191,14 +273,11 @@ class Tensor {
             // For the moment, size is limited to 4GB.
             // size
 
-
-
             // It's the smaller part on the right.
             //  So the dimension factors should be created in the opposite direction.
 
             const pos_to_i = pos => {
                 // pos should have all dimensions?
-                //
 
                 // But for lower order pos?
 
@@ -259,7 +338,7 @@ class Tensor {
                 //throw 'stop';
 
                 for (let c = 0 ; c < rank; c++) {
-                    let a = Math.floor(sum / dimension_factors[c]);
+                    const a = Math.floor(sum / dimension_factors[c]);
                     sum -= a * dimension_factors[c];
                     //console.log('a', a);
                     res[c] = a;
@@ -321,6 +400,9 @@ class Tensor {
             }
             */
 
+            // Seems much like slice
+            //  Not sure
+
             const get_from_lower_rank = pos => {
                 console.log('get_from_lower_rank', pos);
 
@@ -329,15 +411,15 @@ class Tensor {
 
                 // Tensor gets the dimensions of the remaining ranks.
 
-                let l = pos.length;
-                let rem = shape.slice(l);
+                const l = pos.length;
+                const rem = shape.slice(l);
                 //console.log('pos l', l);
                 //console.log('rem', rem);
 
                 //let res = new Tensor(rem);
                 //console.log('res', res);
 
-                let i_begin = pos_to_i(pos);
+                const i_begin = pos_to_i(pos);
                 //console.log('i_begin', i_begin);
 
                 //console.log('dimension_factors', dimension_factors);
@@ -347,15 +429,15 @@ class Tensor {
                 }
 
                 //console.log('rank_size', rank_size);
-                let i_end = i_begin + rank_size;
+                //const i_end = i_begin + rank_size;
                 //console.log('i_end', i_end);
 
-                let ta_res = ta.slice(i_begin, i_end);
+                //const ta_res = ta.slice(i_begin, i_begin + rank_size);
                 //console.log('ta_res', ta_res);
                 //console.log('ta_res.length', ta_res.length);
 
-                let res = new Tensor(rem, ta_res);
-                return res;
+                //let res = new Tensor(rem, ta_res);
+                return new Tensor(rem, ta.slice(i_begin, i_begin + rank_size));
 
                 // then we create a new Tensor with the remaining shape and data.
 
@@ -399,18 +481,15 @@ class Tensor {
                     // or zeros throughout the whole thing.?
 
                     // May need to look at the value.length
-
                 }
 
                 if (Array.isArray(pos)) {
                     pos = new Uint32Array(pos);
                 }
 
-
                 // if the value is a number
                 //  need to have a position
                 if (typeof value === 'number') {
-
                     // need to have a position.
 
                     if (pos !== null) {
@@ -419,14 +498,13 @@ class Tensor {
                         throw 'NYI';
                     }
 
-
                 } else {
                     if (Array.isArray(value)) {
-                        console.log('arr value.length', value.length);
+                        //console.log('arr value.length', value.length);
                         if (pos === null) {
                             if (value.length === ta.length) {
                                 const l = value.length;
-                                for (var c = 0; c < l; c++) {
+                                for (let c = 0; c < l; c++) {
                                     ta[c] = value[c];
                                 }
                             }
@@ -435,12 +513,12 @@ class Tensor {
                     } else {
                         if (m_ta_constructors.has(value.constructor)) {
                             // typed array
-                            console.log('ta value.length', value.length);
+                            //console.log('ta value.length', value.length);
 
                             if (pos === null) {
                                 if (value.length === ta.length) {
                                     const l = value.length;
-                                    for (var c = 0; c < l; c++) {
+                                    for (let c = 0; c < l; c++) {
                                         ta[c] = value[c];
                                     }
                                 } else {
@@ -451,9 +529,9 @@ class Tensor {
                             // 
 
                             if (value instanceof Tensor) {
-                                console.log('value', value);
-                                console.log('value.shape', value.shape);
-                                console.log('value.rank', value.rank);
+                                //console.log('value', value);
+                                //console.log('value.shape', value.shape);
+                                //console.log('value.rank', value.rank);
                                 //throw 'stop';
 
                                 const vta = value.ta;
@@ -461,8 +539,6 @@ class Tensor {
 
                                 // More checks that it will fit within the boundary of this tensor?
                                 //  Automatically clip it is it won't be?
-
-
 
                                 // Better to iterate through all indexes of the value.
                                 //  Then get the coords from that value
@@ -490,37 +566,25 @@ class Tensor {
                                     */
                                     
                                     // Or could use some kind of index offset list / tensor.
-                                    ta[pos_to_i(add(pos, value.i_to_pos(iv)))] = vta[iv];
+                                    ta[pos_to_i(add_ta(pos, value.i_to_pos(iv)))] = vta[iv];
                                 }
-                                
-
                                 // find the index of the pos
                                 //const i = pos_to_i(pos);
 
                                 // then need to iterate through that tensor's pos.
-
-
-
 
                             } else {
                                 console.trace();
 
                                 throw 'Unsupported value type ' + value;
                             }
-
-
                         }
                     }
                 }
-
-
-
             }
 
-
             //const set = (pos, value) => ta[pos_to_i(pos)] = value;
-
-
+            // 
 
             const get = pos => pos.length === rank ? ta[pos_to_i(pos)] : get_from_lower_rank(pos);
 
@@ -534,15 +598,14 @@ class Tensor {
             }
             const fill_with_tensor = value_tensor => {
                 //console.log('fill_with_tensor');
-                let tr = value_tensor.rank;
+                const tr = value_tensor.rank;
                 //console.log('tr', tr);
-                let ts = value_tensor.size;
+                const ts = value_tensor.size;
                 //console.log('ts', ts);
                 const tta = value_tensor.ta;
 
                 // Check to see if the dimension size matches?
                 //  Needs more work for other cases.
-
 
                 // Only a tensor of rank 1, we could copy it directly.
 
@@ -552,13 +615,13 @@ class Tensor {
 
                 // find the rank where this gets added
 
-                let my_target_dimension = rank - tr;
+                //let my_target_dimension = rank - tr;
                 //console.log('my_target_dimension', my_target_dimension);
 
                 const l = ta.length;
 
-                let d;
-                for (let c = 0; c < l; c += ts) {
+                let c, d;
+                for (c = 0; c < l; c += ts) {
                     for (d = 0; d < ts; d++) {
                         ta[c + d] = tta[d];
                     }
@@ -579,6 +642,53 @@ class Tensor {
 
             const fill = (value) => value instanceof Tensor ? fill_with_tensor(value) : fill_with_value(value);
             this.fill = fill;
+
+
+            const scale = scalar => {
+                const l = ta.length;
+                for (let c = 0; c < l; c++) ta[c] *= scalar;
+                return this;
+            }
+            this.scale = scale;
+
+            // add
+            //  add another tensor to this - the shapes need to match
+            //  how about just comparing the sizes?
+
+            // add and subtract
+
+            // could just compare the ta sizes for the lower level ops.
+
+            const add = (t, alpha = 1) => {
+                const tta = t.ta, ttal = tta.length, l = ta.length;
+                if (l !== ttal) {
+                    throw 'Unequal sizes'
+                }
+
+                if (alpha === 1) {
+                    for (let c = 0; c < l; c++) ta[c] += tta[c];
+                } else if (alpha === -1) {
+                    for (let c = 0; c < l; c++) ta[c] -= tta[c];
+                } else {
+                    for (let c = 0; c < l; c++) ta[c] += tta[c] * alpha;
+                }
+                
+                return this;
+            }
+            this.add = add;
+
+            const subtract = t => add(t, -1);
+            this.subtract = subtract;
+
+
+
+
+
+            // slice
+
+            // has begin and end positions.
+
+            // need to create a new tensor of the chosen size.
 
         })(rank, dimension_factors, r_dimension_factors, size, shape);
 
@@ -610,6 +720,11 @@ class Tensor {
 
         // Time, like frame in a video, would be the first dimension.
         // Then t could be the next dimension / number of frames into the 3d-space animation
+
+
+
+        // see y is on the left of x here.
+
         //
         // (width * height * depth * t) + (width * height * z) + (width * y) + x
         // (d1 * d2 * d3 * p4) + (d1 * d2 * p3) + (d1 * p2) + p1
@@ -623,102 +738,5 @@ class Tensor {
 
 
 
-if (require.main === module) {
-    //var number = 252;
-    //var key1 = new XAS2(number);
-    //var key2 = xas2(key1.hex);
-
-    const t = new Tensor(new Uint32Array([100, 100, 3]));
-    console.log('t', t);
-
-    //let i = t.pos_to_i([2, 2, 2]);
-    let i = t.pos_to_i([40, 60, 2]);
-    console.log('i', i);
-
-    let pos = t.i_to_pos(i);
-    console.log('pos', pos);
-
-    t.set([40, 60, 0], 120);
-    t.set([40, 60, 1], 130);
-    t.set([40, 60, 2], 255);
-
-    i = t.pos_to_i([40, 60, 0]);
-    console.log('i', i);
-    i = t.pos_to_i([40, 60, 1]);
-    console.log('i', i);
-    i = t.pos_to_i([40, 60, 2]);
-    console.log('i', i);
-
-    let px = t.get([40, 60]);
-    console.log('px', px);
-    console.log('px.shape', px.shape);
-
-    // want to create a 10x10 block
-
-    const t10x10 = new Tensor([10, 10, 3]);
-
-    // want to put in place a [20, 25, 30] color in all pixels.
-    // so set a tensor at a variety of pixels
-
-    let t_col = new Tensor([3]);
-
-    // how to use its values as a scalar in the constructor? Not for the moment.
-    t_col.set([20, 25, 30]); // Seems like good syntax.
-    // Set with array.
-    // Not give any position. It sets the whole ta.
-
-    // should it immedaietely convert that array to a ta?
-    //  or create a new tensor for them?
-
-    //t_col.set([0], 20);
-    //t_col.set([1], 25);
-    //t_col.set([2], 30);
-
-    t10x10.fill(t_col);
-
-    
-    console.log('t10x10.rank', t10x10.rank);
-    //throw 'stop';
-
-    // need to be able to set with a tensor.
-    t.set([0, 1], t10x10);
-    console.log('t.ta', t.ta);
-    console.log('t.shape', t.shape);
-
-    // to_png(tensor(x, y, bytes_per_pixel))
-
-
-    // then want to save some of it, could export as pixel buffer
-    //  tensor_to_pixel_buffer
-    //   but only a specific tensor shape.
-
-
-    // Should be similar to bitblit
-
-
-    //t10x10.fill()
-
-    // then want to set that t10x10 within the larger tensor in a few places.
-
-    // Need fast ways of accessing a particular set of coordinates on a 2d plane.
-    //  Tensors holding position offsets could be of use
-    //  Or tensor shapes representing position offsets
-
-    // Be familiar with adding a certain amount to an index to move the position.
-
-    // Rank index offset vectors.
-
-    // As well as the right loops and conversion functions, also want the patterns for moving through two tensors at once.
-    //  Position offset vectors
-    //  Calculated position offsets
-
-    // Want to try iterating through 10x10 index.
-    //  View internel tensor
-    //  Don't need to get an internal ten
-
-
-} else {
-    //console.log('required as a module');
-}
 
 module.exports = Tensor;
