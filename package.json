@@ -2,7 +2,10 @@
     "name": "ta-tensor",
     "main": "tensor.js",
     "license": "MIT",
-    "dependencies": {},
+    "dependencies": {
+        "lang-mini": "^0.0.15",
+        "obext": "^0.0.16"
+    },
     "engines": {
         "node": ">=11.0.7"
     },
