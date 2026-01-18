@@ -16,6 +16,8 @@ const Tensor_Position = require('./Tensor_Position/Tensor_Position');
 //                                 position of [a, b, c, d, e] type coords within the 1D coord space
 //                                 position of 1D index within the nD coord space.
 
+const Tensor_Index_Nexus = require('./Tensor_Index_Nexus/Tensor_Index_Nexus');
+
 // Will do calculations to get indexes.
 //  For some operations that go over a range of tensor values, maybe using Tensor_Iteration, the ranges will be precalculated - dont want to calculate indexes for each operation.
 //   Will know what pointers, ranges and jumps to use.
@@ -63,7 +65,7 @@ const Tensor_Position = require('./Tensor_Position/Tensor_Position');
 
 
 
-const {tof} = require('lang-mini');
+const { tof } = require('lang-mini');
 
 
 
@@ -105,7 +107,7 @@ class Tensor {
 
     // That increment loop will itself also be a useful pattern.
     // (Byte_Tensor?)
-    
+
     constructor(spec, spec2) {
         // The shape
         //  Shape could even be / act as an array of dimensions.
@@ -125,9 +127,9 @@ class Tensor {
             //    ta = spec.ta;
             //}
         }
-        
-        
-        
+
+
+
 
         let ta_type;
 
@@ -167,10 +169,10 @@ class Tensor {
         //  Provide abstractions as well as direct access to the ta.
 
 
-        
-        
 
-        
+
+
+
 
 
         // Then need a shape property...
@@ -181,13 +183,13 @@ class Tensor {
             // This is equivalent to:
             // get: function() { return bValue; },
             // set: function(newValue) { bValue = newValue; },
-            get() { 
+            get() {
                 //console.log('num_dimensions', num_dimensions);
                 // 2 items in the ta for each dimension.
                 return shape;
 
             },
-            set(newValue) { throw 'NYI';},
+            set(newValue) { throw 'NYI'; },
             enumerable: true,
             configurable: true
         });
@@ -197,8 +199,8 @@ class Tensor {
             // This is equivalent to:
             // get: function() { return bValue; },
             // set: function(newValue) { bValue = newValue; },
-            get() { 
-               return shape.volume;
+            get() {
+                return shape.volume;
 
                 // 2 items in the ta for each dimension.
                 //return ta_dimensions.subarray(0, num_dimensions * 2);
@@ -214,8 +216,8 @@ class Tensor {
             // This is equivalent to:
             // get: function() { return bValue; },
             // set: function(newValue) { bValue = newValue; },
-            get() { 
-               return ta;
+            get() {
+                return ta;
 
                 // 2 items in the ta for each dimension.
                 //return ta_dimensions.subarray(0, num_dimensions * 2);
@@ -227,17 +229,105 @@ class Tensor {
         });
 
 
+        let nexus_shape;
+        if (shape instanceof Simple_Tensor_Shape) {
+            const dim_ta = shape.dimensions;
+            const rank = dim_ta.length / 3;
+            nexus_shape = new Uint32Array(rank);
+            for (let c = 0; c < rank; c++) nexus_shape[c] = dim_ta[c * 3 + 1];
+        } else {
+            nexus_shape = shape;
+        }
+
+        this.nexus = new Tensor_Index_Nexus(nexus_shape);
+
         this.set = (pos, value) => {
             if (pos instanceof Tensor_Position) {
-                const idx = shape.idx(pos);
+                //const idx = shape.idx(pos);
+                const idx = this.nexus.pos_to_i(pos.ta);
                 ta[idx] = value;
             }
         }
         this.get = pos => {
             if (pos instanceof Tensor_Position) {
-                const idx = shape.idx(pos);
+                //const idx = shape.idx(pos);
+                const idx = this.nexus.pos_to_i(pos.ta);
                 return ta[idx];
             }
+        }
+
+        this.toString = () => {
+            const rank = this.nexus.rank || nexus_shape.length; // nexus.rank might not be exposed yet, use shape length
+
+            if (rank === 2) {
+                let res = 'Tensor[' + nexus_shape + ']\n';
+                const rows = nexus_shape[0];
+                const cols = nexus_shape[1];
+                // Wait, nexus_shape logic: [rows, cols]?
+                // Or [cols, rows]? 
+                // Usually [y, x] or [x, y]?
+                // Let's assume standard row-major for now or just iterate using i_to_pos?
+
+                // Better to simple iterate the flat array and break lines?
+                // Tensor logic in _tensor.js:
+                // "new item every 2 values" (for rank 3)
+
+                // Simple 2D print:
+                const d0 = nexus_shape[0];
+                const d1 = nexus_shape[1];
+
+                // Assuming standard packing 
+                // but checking nexus logic:
+                // pos_to_i sums dimension_factors[c] * pos[c]
+                // dimension_factors are reverse-engineered from shape.
+                // dimension_factors[0] = 1 (but then reversed to factors)
+
+                // Let's trust just iterating the text string generation?
+                // Or just print the array?
+
+                // Simple implementation for now:
+                if (ta.length <= 100) {
+                    return `Tensor ${Array.from(nexus_shape).join('x')} [${ta.join(', ')}]`;
+                }
+                return `Tensor ${Array.from(nexus_shape).join('x')} (size: ${ta.length})`;
+            }
+            if (rank === 3) {
+                // 3x5x5
+                // d0, d1, d2
+                const d0 = nexus_shape[0];
+                const d1 = nexus_shape[1];
+                const d2 = nexus_shape[2];
+
+                let lines = [];
+                let current_line = [];
+
+                // This is tricky without knowing exact memory layout semantics vs display semantics
+                // Let's stick to a simple dump for now as requested by "toString in _tensor.js"
+
+                // Copying the _tensor.js logic roughly:
+                /*
+                       const arr_all = [];
+                       let arr_row = [];
+                       let arr_item = [];
+                       for (let c = 0, l = ta.length; c < l; c++) {
+                           arr_item.push(ta[c]);
+                           if (arr_item.length === 2) { // logic for 3x2x2 specifically?
+                */
+
+                // Generic logic:
+                // Last dimension is 'items'?
+
+                // Let's assume last dimension is inner-most (contiguous in memory) due to 'reverse' logic in Nexus?
+                // Nexus: "The right-most part has got the smallest result in the dimensions." -> shape.reverse() -> tsize * rshape[c]
+                // dimension_factors reversed.
+                // So factor[rank-1] (last dim) = 1?
+                // No, factor[rank] is 1 implicitly?
+
+                // Let's rely on standard printing:
+                return `Tensor ${Array.from(nexus_shape).join('x')} [${ta.join(', ')}]`;
+            }
+
+            return `Tensor ${Array.from(nexus_shape).join('x')}`;
         }
 
 

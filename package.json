@@ -3,8 +3,8 @@
     "main": "tensor.js",
     "license": "MIT",
     "dependencies": {
-        "lang-mini": "^0.0.22",
-        "obext": "^0.0.19"
+        "lang-mini": "^0.0.46",
+        "obext": "^0.0.33"
     },
     "engines": {
         "node": ">=11.0.7"
@@ -15,5 +15,5 @@
         "type": "git",
         "url": "https://github.com/metabench/ta-tensor.git"
     },
-    "version": "0.0.4"
+    "version": "0.0.5"
 }
